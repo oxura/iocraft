@@ -237,6 +237,7 @@ impl Canvas {
         text: &str,
         style: CanvasTextStyle,
         clip: std::ops::Range<isize>,
+        hyperlink: Option<&Option<Arc<str>>>,
     ) {
         if x >= clip.end {
             return;
@@ -258,6 +259,11 @@ impl Canvas {
                     value: value.to_owned(),
                     style,
                 });
+                if let Some(hyperlink) = hyperlink {
+                    for cell in &mut row[start..end] {
+                        cell.hyperlink.clone_from(hyperlink);
+                    }
+                }
             }
             x += width;
             true
@@ -612,6 +618,29 @@ impl CanvasSubviewMut<'_> {
     ///
     /// Characters that don't fully fit within the region are not written.
     pub fn set_text(&mut self, x: isize, y: isize, text: &str, style: CanvasTextStyle) {
+        self.set_text_impl(x, y, text, style, None);
+    }
+
+    pub(crate) fn set_text_with_hyperlink(
+        &mut self,
+        x: isize,
+        y: isize,
+        text: &str,
+        style: CanvasTextStyle,
+        hyperlink: &Option<Arc<str>>,
+    ) {
+        self.set_text_impl(x, y, text, style, Some(hyperlink));
+    }
+
+    fn set_text_impl(
+        &mut self,
+        x: isize,
+        y: isize,
+        text: &str,
+        style: CanvasTextStyle,
+        // None keeps existing hyperlinks, Some(None) clears them where text is painted.
+        hyperlink: Option<&Option<Arc<str>>>,
+    ) {
         let Ok(x) = isize::try_from(self.x as i128 + x as i128) else {
             return;
         };
@@ -632,7 +661,7 @@ impl CanvasSubviewMut<'_> {
             }
             if y >= min_y {
                 self.canvas
-                    .set_text_row(x, y as usize, line, style, min_x..max_x);
+                    .set_text_row(x, y as usize, line, style, min_x..max_x, hyperlink);
             }
         }
     }
